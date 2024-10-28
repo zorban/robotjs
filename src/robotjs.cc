@@ -1,5 +1,6 @@
 #include <node_api.h>
 #include <vector>
+#include <string.h>
 #include "mouse.h"
 #include "deadbeef_rand.h"
 #include "keypress.h"
