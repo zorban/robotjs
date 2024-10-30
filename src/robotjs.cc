@@ -466,6 +466,51 @@ int CheckKeyFlags(const char* f, MMKeyFlags* flags)
 	return 0;
 }
 
+int GetFlagsFromString(napi_env env, napi_value value, MMKeyFlags* flags)
+{
+	size_t str_size;
+	napi_get_value_string_utf8(env, value, NULL, 0, &str_size);
+	char* fstr = (char*)malloc(str_size + 1);
+	napi_get_value_string_utf8(env, value, fstr, str_size + 1, &str_size);
+	int result = CheckKeyFlags(fstr, flags);
+	free(fstr);
+	return result;
+}
+
+int GetFlagsFromValue(napi_env env, napi_value value, MMKeyFlags* flags)
+{
+	if (!flags) return -1;
+
+	bool isArray;
+	napi_is_array(env, value, &isArray);
+
+	if (isArray)
+	{
+		uint32_t length;
+		napi_get_array_length(env, value, &length);
+		for (uint32_t i = 0; i < length; i++)
+		{
+			napi_value v;
+			napi_get_element(env, value, i, &v);
+
+			bool isString;
+			napi_valuetype type;
+			napi_typeof(env, v, &type);
+			isString = (type == napi_string);
+			if (!isString) return -2;
+
+			MMKeyFlags f = MOD_NONE;
+			const int rv = GetFlagsFromString(env, v, &f);
+			if (rv) return rv;
+
+			*flags = (MMKeyFlags)(*flags | f);
+		}
+		return 0;
+	}
+
+	return GetFlagsFromString(env, value, flags);
+}
+
 napi_value KeyTap(napi_env env, napi_callback_info info)
 {
 	size_t argc = 2;
@@ -486,33 +531,28 @@ napi_value KeyTap(napi_env env, napi_callback_info info)
 	napi_get_value_string_utf8(env, args[0], k, str_size + 1, &str_size);
 
 	if (argc == 2) {
-		napi_get_value_string_utf8(env, args[1], NULL, 0, &str_size);
-		char* f = (char*)malloc(str_size + 1);
-		napi_get_value_string_utf8(env, args[1], f, str_size + 1, &str_size);
-
-		switch (CheckKeyFlags(f, &flags)) {
+		switch (GetFlagsFromValue(env, args[1], &flags))
+		{
 			case -1:
-				napi_throw_error(env, NULL, "Null pointer in key flag.");
 				free(k);
-				free(f);
+				napi_throw_error(env, NULL, "Null pointer in key flag.");
 				return NULL;
 			case -2:
-				napi_throw_error(env, NULL, "Invalid key flag specified.");
 				free(k);
-				free(f);
+				napi_throw_error(env, NULL, "Invalid key flag specified.");
 				return NULL;
 		}
-		free(f);
 	}
 
-	switch(CheckKeyCodes(k, &key)) {
+	switch(CheckKeyCodes(k, &key))
+	{
 		case -1:
-			napi_throw_error(env, NULL, "Null pointer in key code.");
 			free(k);
+			napi_throw_error(env, NULL, "Null pointer in key code.");
 			return NULL;
 		case -2:
-			napi_throw_error(env, NULL, "Invalid key code specified.");
 			free(k);
+			napi_throw_error(env, NULL, "Invalid key code specified.");
 			return NULL;
 		default:
 			toggleKeyCode(key, true, flags);
@@ -542,13 +582,13 @@ napi_value KeyToggle(napi_env env, napi_callback_info info)
 
 	MMKeyFlags flags = MOD_NONE;
 	MMKeyCode key;
-	bool down = false;
 
 	size_t str_size;
 	napi_get_value_string_utf8(env, args[0], NULL, 0, &str_size);
 	char* k = (char*)malloc(str_size + 1);
 	napi_get_value_string_utf8(env, args[0], k, str_size + 1, &str_size);
 
+	bool down = false;
 	if (argc > 1) {
 		napi_get_value_string_utf8(env, args[1], NULL, 0, &str_size);
 		char* d = (char*)malloc(str_size + 1);
@@ -559,42 +599,37 @@ napi_value KeyToggle(napi_env env, napi_callback_info info)
 		} else if (strcmp(d, "up") == 0) {
 			down = false;
 		} else {
-			napi_throw_error(env, NULL, "Invalid key state specified.");
 			free(k);
 			free(d);
+			napi_throw_error(env, NULL, "Invalid key state specified.");
 			return NULL;
 		}
 		free(d);
 	}
 
 	if (argc == 3) {
-		napi_get_value_string_utf8(env, args[2], NULL, 0, &str_size);
-		char* f = (char*)malloc(str_size + 1);
-		napi_get_value_string_utf8(env, args[2], f, str_size + 1, &str_size);
-
-		switch (CheckKeyFlags(f, &flags)) {
+		switch (GetFlagsFromValue(env, args[2], &flags))
+		{
 			case -1:
-				napi_throw_error(env, NULL, "Null pointer in key flag.");
 				free(k);
-				free(f);
+				napi_throw_error(env, NULL, "Null pointer in key flag.");
 				return NULL;
 			case -2:
-				napi_throw_error(env, NULL, "Invalid key flag specified.");
 				free(k);
-				free(f);
+				napi_throw_error(env, NULL, "Invalid key flag specified.");
 				return NULL;
 		}
-		free(f);
 	}
 
-	switch(CheckKeyCodes(k, &key)) {
+	switch(CheckKeyCodes(k, &key))
+	{
 		case -1:
-			napi_throw_error(env, NULL, "Null pointer in key code.");
 			free(k);
+			napi_throw_error(env, NULL, "Null pointer in key code.");
 			return NULL;
 		case -2:
-			napi_throw_error(env, NULL, "Invalid key code specified.");
 			free(k);
+			napi_throw_error(env, NULL, "Invalid key code specified.");
 			return NULL;
 		default:
 			toggleKeyCode(key, down, flags);
